@@ -207,6 +207,8 @@ select option{color:#171528;background:#fff}
 .form-foot .note a{color:var(--iris);text-decoration:none;border-bottom:1px solid rgba(138,123,216,.4)}
 .form-msg{margin-top:18px;font-size:15px;border-radius:12px;padding:14px 16px;display:none}
 .form-msg.show{display:block}
+.form-msg p{margin:0}
+.form-msg p+p{margin-top:10px}
 .form-msg.ok{background:rgba(255,233,0,.12);border:1px solid rgba(255,233,0,.4);color:#fff}
 .form-msg.err{background:rgba(255,120,120,.1);border:1px solid rgba(255,120,120,.4);color:#ffd9d9}
 .btn[disabled]{opacity:.55;cursor:progress}
@@ -1041,6 +1043,20 @@ var API_BASE = "https://aixed-api.onrender.com"; // your Render api-server
   var msg = document.getElementById('form-msg');
   var btn = document.getElementById('submit-btn');
   function show(kind, text){ msg.className = 'form-msg show ' + kind; msg.textContent = text; }
+  // After a request: what happens next, then where the email comes from, set
+  // apart so it's read. Many approval emails have landed in spam. Built from
+  // nodes, since the address shown is what the visitor typed.
+  function showSent(email){
+    msg.className = 'form-msg show ok';
+    msg.textContent = '';
+    var next = document.createElement('p');
+    next.textContent = "Thanks, we've got your request. If you've already been approved, your access link is on its way to " + email + ". Otherwise we'll email it once you're approved.";
+    var from = document.createElement('p');
+    var sender = document.createElement('strong');
+    sender.textContent = 'aixed@promontoryai.com';
+    from.append('The email comes from ', sender, ". Add that address to your contacts now so it reaches your inbox. If you don't see it, check your spam or junk folder (and Promotions in Gmail).");
+    msg.append(next, from);
+  }
   form.addEventListener('submit', function(e){
     e.preventDefault();
     var data = Object.fromEntries(new FormData(form).entries());
@@ -1064,7 +1080,10 @@ var API_BASE = "https://aixed-api.onrender.com"; // your Render api-server
       .then(function(res){
         if(res.ok){
           form.reset();
-          show('ok', "Thanks, we've got your request. If you've already been approved, your access link is on its way to " + data.email + ". Otherwise we'll email it once you're approved. It comes from aixed@promontoryai.com, so check your spam folder if you don't see it.");
+          showSent(data.email);
+          // Analytics: one "Access requested" event per request the server
+          // took, with the role chosen (no personal details).
+          if (window.umami && typeof window.umami.track === 'function') window.umami.track('Access requested', { role: data.role });
         } else {
           show('err', (res.j && res.j.error) || 'Something went wrong. Please email aixed@promontoryai.com.');
         }
